@@ -84,6 +84,13 @@ public enum FileType {
     public static let CLIPBOARD: UInt32 = 0x0000_0020
 }
 
+/// Extended file-attribute keys used inside dir-stream headers (`key=val`, hex).
+public enum FileExt {
+    public static let MTIME: UInt32 = 0x0000_0014
+    public static let ATIME: UInt32 = 0x0000_0015
+    public static let CREATETIME: UInt32 = 0x0000_0016
+}
+
 /// Separator between file records inside an attach list (FILELIST_SEPARATOR).
 public let FILELIST_SEPARATOR: Character = "\u{07}"  // '\a'
 

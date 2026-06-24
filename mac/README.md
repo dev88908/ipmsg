@@ -17,11 +17,14 @@ This is a separate Swift project; it does **not** modify the Windows sources.
 | Delivery confirmation (`SENDCHECK` → `RECVMSG`) | ✅ |
 | Send files to a peer (peer pulls them over TCP `GETFILEDATA`) | ✅ |
 | Receive / download attached files from a peer | ✅ |
-| Directory-tree transfer (`GETDIRFILES`) | ⛔ not yet (regular files only) |
+| Directory-tree transfer (`GETDIRFILES`, nested folders) | ✅ |
 | Encryption (RSA/Blowfish/AES) and sealed messages | ⛔ not yet |
 
-Discovery and messaging are verified at runtime against the protocol
-(`scripts/probe.swift` simulates a peer and checks the answers).
+* Discovery and messaging are verified at runtime against the protocol
+  (`scripts/probe.swift` simulates a peer and checks the answers).
+* File and directory-tree transfer are covered by TCP loopback integration
+  tests (`swift test`) that stream a real tree and assert it is rebuilt
+  byte-for-byte.
 
 ## Build & run
 
@@ -82,6 +85,12 @@ Tests/IPMsgCoreTests/   ← packet/file-list round-trip tests
 * File records: `fileID:name:sizeHex:mtimeHex:attrHex:` separated by `\a`.
   Files are pulled by the receiver via a TCP `GETFILEDATA` request whose body is
   `packetID:fileID:offset` (hex); the sender then streams raw bytes.
+* Directories are marked `IPMSG_FILE_DIR` in the file list and pulled via a
+  `GETDIRFILES` request (`packetID:fileID:`). The sender then streams a depth-
+  first walk where each entry is `HHHH:name:sizeHex:attrHex[:14=mtime:16=ctime]:`
+  followed by the file content; a directory is opened by a `DIR` entry and
+  closed by a `RETPARENT` entry (name `.`). Path components are validated to
+  block traversal (`..`, separators).
 
 See `../protocol.txt` / `../prot-eng.txt` for the full specification and
 `../src/ipmsg.h` for the authoritative command constants.

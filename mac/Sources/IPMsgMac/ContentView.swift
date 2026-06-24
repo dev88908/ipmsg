@@ -217,8 +217,14 @@ struct AttachmentRow: View {
     @ViewBuilder private func stateView(_ state: DownloadState) -> some View {
         switch state {
         case .downloading(let got, let total):
-            ProgressView(value: Double(got), total: Double(max(total, 1)))
-                .frame(width: 180)
+            if total > 0 {
+                ProgressView(value: Double(min(got, total)), total: Double(total))
+                    .frame(width: 180)
+            } else {
+                // Directory tree: total size unknown, show bytes received so far.
+                Text("Receiving… \(byteString(got))")
+                    .font(.caption2).foregroundStyle(.secondary)
+            }
         case .done:
             Text("Saved").font(.caption2).foregroundStyle(.green)
         case .failed(let e):

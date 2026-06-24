@@ -123,10 +123,9 @@ public final class IPMessenger: ObservableObject {
             let fm = FileManager.default
             guard let attrs = try? fm.attributesOfItem(atPath: url.path) else { continue }
             let isDir = (attrs[.type] as? FileAttributeType) == .typeDirectory
-            if isDir { continue }  // directory trees not yet supported
-            let size = (attrs[.size] as? NSNumber)?.uint64Value ?? 0
+            let size = isDir ? 0 : ((attrs[.size] as? NSNumber)?.uint64Value ?? 0)
             let mtime = UInt32(((attrs[.modificationDate] as? Date)?.timeIntervalSince1970) ?? 0)
-            let attr = FileType.REGULAR
+            let attr = isDir ? FileType.DIR : FileType.REGULAR
             let name = url.lastPathComponent.replacingOccurrences(of: ":", with: ";")
 
             list += "\(fid):\(name):\(String(size, radix: 16)):\(String(mtime, radix: 16)):\(String(attr, radix: 16)):"
@@ -228,31 +227,40 @@ public final class IPMessenger: ObservableObject {
 
     // MARK: Downloads
 
-    /// Download an attachment from the message it arrived with.
+    /// Download an attachment (regular file or directory tree) from its message.
     public func download(_ file: AttachedFile, from message: ChatMessage) {
-        guard !file.isDir else {
-            downloads[file.id] = .failed("directory download not supported")
-            return
-        }
-        let dest = uniqueDestination(for: file.name)
         downloads[file.id] = .downloading(received: 0, total: file.size)
 
-        let req = FileDownloader.Request(
-            host: message.senderAddress, port: message.senderPort,
-            packetNo: message.packetNo, fileID: file.id, size: file.size,
-            localUser: identity.userName, localHost: identity.hostName,
-            requestPacketNo: nextPacketNo())
-
-        FileDownloader.download(req, to: dest, progress: { [weak self] got, total in
+        let onProgress: (UInt64, UInt64) -> Void = { [weak self] got, total in
             DispatchQueue.main.async { self?.downloads[file.id] = .downloading(received: got, total: total) }
-        }, completion: { [weak self] result in
+        }
+        let onDone: (Result<URL, Error>) -> Void = { [weak self] result in
             DispatchQueue.main.async {
                 switch result {
                 case .success(let url): self?.downloads[file.id] = .done(url: url)
                 case .failure(let e): self?.downloads[file.id] = .failed(e.localizedDescription)
                 }
             }
-        })
+        }
+
+        if file.isDir {
+            let dest = uniqueDestination(for: file.name)
+            let req = DirectoryReceiver.Request(
+                host: message.senderAddress, port: message.senderPort,
+                packetNo: message.packetNo, fileID: file.id, totalSize: file.size,
+                rootName: dest.lastPathComponent,
+                localUser: identity.userName, localHost: identity.hostName,
+                requestPacketNo: nextPacketNo())
+            DirectoryReceiver.download(req, to: downloadDirectory, progress: onProgress, completion: onDone)
+        } else {
+            let dest = uniqueDestination(for: file.name)
+            let req = FileDownloader.Request(
+                host: message.senderAddress, port: message.senderPort,
+                packetNo: message.packetNo, fileID: file.id, size: file.size,
+                localUser: identity.userName, localHost: identity.hostName,
+                requestPacketNo: nextPacketNo())
+            FileDownloader.download(req, to: dest, progress: onProgress, completion: onDone)
+        }
     }
 
     private func uniqueDestination(for name: String) -> URL {
