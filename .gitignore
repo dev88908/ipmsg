@@ -1,0 +1,37 @@
+# Visual Studio build output / user files
+
+# Build output directories
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Ww]in32/
+obj/
+[Oo]bj/
+Obj*/
+
+# Generated static libs / build artifacts
+lib/
+
+# Visual Studio / IDE
+.vs/
+*.user
+*.suo
+*.sdf
+*.opensdf
+*.VC.db
+*.VC.opendb
+*.aps
+*.ncb
+
+# Intermediate / linker artifacts
+*.obj
+*.o
+*.pch
+*.ipch
+*.ilk
+*.idb
+*.pdb
+*.tlog
+*.lastbuildstate
+*.log
